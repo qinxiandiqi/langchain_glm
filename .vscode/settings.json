@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
         "dotenv",
+        "FAISS",
         "langchain",
+        "vectorstore",
+        "vectorstores",
         "ZHIPU",
         "ZHIPUAI"
     ]
