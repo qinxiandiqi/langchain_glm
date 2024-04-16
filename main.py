@@ -1,11 +1,15 @@
 import os
 
 from dotenv import load_dotenv
+from langchain import hub
+from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.tools.retriever import create_retriever_tool
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -13,7 +17,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from chat_zhipu_ai import ChatZhipuAI
 
 
-def create_llm() -> ChatZhipuAI:
+def _create_llm() -> ChatZhipuAI:
     """
     创建一个智普AI大模型实例。
     """
@@ -38,7 +42,7 @@ def simple_llm_chain() -> None:
     """
 
     # 创建智普AI大模型实例
-    llm = create_llm()
+    llm = _create_llm()
 
     # 创建一个简单的ChatPromptTemplate
     prompt = ChatPromptTemplate.from_messages([
@@ -57,6 +61,26 @@ def simple_llm_chain() -> None:
     print(result)
 
 
+def _create_rust_vectorstore():
+    """
+    创建一个向量数据库，用于存储rust编程语言的相关文档。
+    """
+    # 使用web加载器加载外部文档数据
+    web_loader = WebBaseLoader(
+        "https://www.rust-lang.org/zh-CN/"
+    )
+    docs = web_loader.load()
+    # 使用嵌入模型对外部数据进行向量化，并存入向量数据库
+    # 创建嵌入模型
+    embeddings = HuggingFaceEmbeddings()
+    # 创建分词器
+    text_splitter = RecursiveCharacterTextSplitter()
+    # 使用分词器拆分外部文档数据
+    documents = text_splitter.split_documents(docs)
+    # 创建向量数据库
+    return FAISS.from_documents(documents, embeddings)
+
+
 def retrieval_llm_chain() -> None:
     """
     使用检索链。
@@ -72,22 +96,10 @@ def retrieval_llm_chain() -> None:
     """
 
     # 创建一个智普AI大模型实例
-    llm = create_llm()
+    llm = _create_llm()
 
-    # 使用web加载器加载外部文档数据
-    web_loader = WebBaseLoader(
-        "https://www.rust-lang.org/zh-CN/"
-    )
-    docs = web_loader.load()
-    # 使用嵌入模型对外部数据进行向量化，并存入向量数据库
-    # 创建嵌入模型
-    embeddings = HuggingFaceEmbeddings()
-    # 创建分词器
-    text_splitter = RecursiveCharacterTextSplitter()
-    # 使用分词器拆分外部文档数据
-    documents = text_splitter.split_documents(docs)
     # 创建向量数据库
-    vectorstore = FAISS.from_documents(documents, embeddings)
+    vectorstore = _create_rust_vectorstore()
 
     # 创建文档链：输入检索到的文档数据，以及问题
     # 先创建上游提示词模板
@@ -112,6 +124,36 @@ def retrieval_llm_chain() -> None:
     print(result["answer"])
 
 
+def agent_llm_chain() -> None:
+    """
+    使用智普AI大模型实现一个简单的智能体。
+    """
+
+    llm = _create_llm()
+
+    # 创建检索器
+    vectorstore = _create_rust_vectorstore()
+    retriever = vectorstore.as_retriever()
+
+    # 为检索器设置一个工具，名为"rust_search"
+    retriever_tool = create_retriever_tool(
+        retriever, name="rust_search", description="Search for rust related documents.")
+
+    # 创建Tavily搜索工具
+    search_tool = TavilySearchResults()
+
+    tools = [retriever_tool, search_tool]
+
+    # 从hub上获取智能体提示词
+    prompt = hub.pull("hwchase17/openai-tools-agent")
+    agent = create_openai_tools_agent(llm=llm, tools=tools, prompt=prompt)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+    # 调用智能体，并打印结果
+    result = agent_executor.invoke({"input": "rust编程语言的优势在哪里？"})
+    print(result)
+
 if __name__ == "__main__":
     # simple_llm_chain()
-    retrieval_llm_chain()
+    # retrieval_llm_chain()
+    agent_llm_chain()

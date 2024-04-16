@@ -2,7 +2,10 @@
     "cSpell.words": [
         "dotenv",
         "FAISS",
+        "hwchase",
         "langchain",
+        "openai",
+        "tavily",
         "vectorstore",
         "vectorstores",
         "ZHIPU",
