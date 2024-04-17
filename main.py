@@ -67,7 +67,7 @@ def _create_rust_vectorstore():
     """
     # 使用web加载器加载外部文档数据
     web_loader = WebBaseLoader(
-        "https://www.rust-lang.org/zh-CN/"
+        "https://doc.rust-lang.org/book/"
     )
     docs = web_loader.load()
     # 使用嵌入模型对外部数据进行向量化，并存入向量数据库
@@ -120,7 +120,7 @@ def retrieval_llm_chain() -> None:
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
     # 调用检索链，并打印结果
-    result = retrieval_chain.invoke({"input": "rust编程语言的优势在哪里？"})
+    result = retrieval_chain.invoke({"input": "rust的所有权是什么？"})
     print(result["answer"])
 
 
@@ -137,7 +137,7 @@ def agent_llm_chain() -> None:
 
     # 为检索器设置一个工具，名为"rust_search"
     retriever_tool = create_retriever_tool(
-        retriever, name="rust_search", description="Search for rust related documents.")
+        retriever, name="rust_search", description="搜索有关rust的信息。关于rust的任何问题，您都可以使用这个工具。")
 
     # 创建Tavily搜索工具
     search_tool = TavilySearchResults()
@@ -146,11 +146,12 @@ def agent_llm_chain() -> None:
 
     # 从hub上获取智能体提示词
     prompt = hub.pull("hwchase17/openai-tools-agent")
+    prompt.pretty_print()
     agent = create_openai_tools_agent(llm=llm, tools=tools, prompt=prompt)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
     # 调用智能体，并打印结果
-    result = agent_executor.invoke({"input": "rust编程语言的优势在哪里？"})
+    result = agent_executor.invoke({"input": "rust的所有权是什么？"})
     print(result)
 
 if __name__ == "__main__":
